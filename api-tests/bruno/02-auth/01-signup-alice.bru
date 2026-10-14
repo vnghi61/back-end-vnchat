@@ -1,0 +1,42 @@
+meta {
+  name: Signup Alice
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/auth/signup
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Alice Bruno",
+    "email": "{{aliceEmail}}",
+    "password": "secret123"
+  }
+}
+
+script:pre-request {
+  const runId = Date.now().toString(36);
+  bru.setVar("runId", runId);
+  bru.setVar("aliceEmail", `alice.${runId}@bruno.test`);
+  bru.setVar("bobEmail", `bob.${runId}@bruno.test`);
+}
+
+script:post-response {
+  bru.setVar("aliceToken", res.body.token);
+  bru.setVar("aliceId", res.body._id);
+}
+
+tests {
+  test("status 201", function () {
+    expect(res.status).to.equal(201);
+  });
+
+  test("returns token and member role", function () {
+    expect(res.body.token).to.be.a("string");
+    expect(res.body.roles).to.deep.equal(["member"]);
+  });
+}

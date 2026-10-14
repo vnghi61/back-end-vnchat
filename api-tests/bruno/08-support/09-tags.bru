@@ -1,0 +1,30 @@
+meta {
+  name: Tags
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{baseUrl}}/api/support/conversations/{{supportId}}/tags
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {
+    "tags": [
+      "bruno",
+      "pricing"
+    ]
+  }
+}
+
+tests {
+  test("status 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}

@@ -1,0 +1,28 @@
+meta {
+  name: Edit as other user is forbidden
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages/{{messageId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+body:json {
+  {
+    "text": "hack"
+  }
+}
+
+tests {
+  test("403 CHAT-403-005", function () {
+    expect(res.status).to.equal(403);
+    expect(res.body.code).to.equal("CHAT-403-005");
+  });
+}

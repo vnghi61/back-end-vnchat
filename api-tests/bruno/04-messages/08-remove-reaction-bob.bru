@@ -1,0 +1,25 @@
+meta {
+  name: Remove reaction (Bob)
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages/{{messageId}}/reactions/%F0%9F%91%8D
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("removed", function () {
+    expect(res.body.reactions.length).to.equal(0);
+  });
+}

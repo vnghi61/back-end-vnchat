@@ -1,0 +1,33 @@
+meta {
+  name: Widget session (guest)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/widget/sessions
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Khách Bruno",
+    "email": "khach@bruno.test"
+  }
+}
+
+script:post-response {
+  bru.setVar("visitorToken", res.body.token);
+  bru.setVar("visitorResumeToken", res.body.visitorToken);
+}
+
+tests {
+  test("status 201", function () {
+    expect(res.status).to.equal(201);
+  });
+
+  test("visitor kind", function () {
+    expect(res.body.user.kind).to.equal("visitor");
+  });
+}

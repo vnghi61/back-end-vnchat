@@ -1,0 +1,37 @@
+meta {
+  name: Send
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "text": "Xin chào Bob từ Bruno",
+    "clientMsgId": "bruno-{{runId}}"
+  }
+}
+
+script:post-response {
+  bru.setVar("messageId", res.body._id);
+}
+
+tests {
+  test("status 201", function () {
+    expect(res.status).to.equal(201);
+  });
+
+  test("seq assigned", function () {
+    expect(res.body.seq).to.be.above(0);
+    expect(res.body.sender.name).to.equal("Alice Nguyễn");
+  });
+}

@@ -1,0 +1,25 @@
+meta {
+  name: Audit log
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/admin/audit?limit=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("records api key revoke", function () {
+    expect(res.body.items.some((a) => a.action === "api_key.revoked")).to.equal(true);
+  });
+}

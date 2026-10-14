@@ -1,0 +1,32 @@
+meta {
+  name: Send retry (same clientMsgId)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "text": "Xin chào Bob từ Bruno",
+    "clientMsgId": "bruno-{{runId}}"
+  }
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("returns the original message", function () {
+    expect(res.body._id).to.equal(bru.getVar("messageId"));
+  });
+}

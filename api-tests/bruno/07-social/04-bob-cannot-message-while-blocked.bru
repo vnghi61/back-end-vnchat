@@ -1,0 +1,28 @@
+meta {
+  name: Bob cannot message while blocked
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+body:json {
+  {
+    "text": "?"
+  }
+}
+
+tests {
+  test("403 CHAT-403-008", function () {
+    expect(res.status).to.equal(403);
+    expect(res.body.code).to.equal("CHAT-403-008");
+  });
+}

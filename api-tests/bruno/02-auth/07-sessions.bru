@@ -1,0 +1,26 @@
+meta {
+  name: Sessions
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/auth/sessions
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("two sessions (signup + login)", function () {
+    expect(res.body.length).to.be.at.least(2);
+    expect(res.body.some((s) => s.current)).to.equal(true);
+  });
+}

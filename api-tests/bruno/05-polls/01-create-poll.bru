@@ -1,0 +1,41 @@
+meta {
+  name: Create poll
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{groupId}}/polls
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "question": "Trưa nay ăn gì?",
+    "options": [
+      "Phở",
+      "Bún chả",
+      "Cơm tấm"
+    ]
+  }
+}
+
+script:post-response {
+  bru.setVar("pollId", res.body.poll._id);
+}
+
+tests {
+  test("status 201", function () {
+    expect(res.status).to.equal(201);
+  });
+
+  test("poll message", function () {
+    expect(res.body.message.type).to.equal("poll");
+    expect(res.body.poll.options.map((o) => o.id)).to.deep.equal(["o1", "o2", "o3"]);
+  });
+}

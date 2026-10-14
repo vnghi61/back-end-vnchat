@@ -1,0 +1,21 @@
+meta {
+  name: Delete
+  type: http
+  seq: 21
+}
+
+delete {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages/{{messageId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}

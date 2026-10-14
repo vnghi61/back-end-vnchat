@@ -1,0 +1,30 @@
+meta {
+  name: Vote after close
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{baseUrl}}/api/polls/{{pollId}}/votes
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+body:json {
+  {
+    "optionIds": [
+      "o2"
+    ]
+  }
+}
+
+tests {
+  test("409 CHAT-409-007", function () {
+    expect(res.status).to.equal(409);
+    expect(res.body.code).to.equal("CHAT-409-007");
+  });
+}

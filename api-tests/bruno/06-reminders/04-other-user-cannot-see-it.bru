@@ -1,0 +1,22 @@
+meta {
+  name: Other user cannot see it
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/reminders/{{reminderId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+tests {
+  test("404 CHAT-404-009", function () {
+    expect(res.status).to.equal(404);
+    expect(res.body.code).to.equal("CHAT-404-009");
+  });
+}

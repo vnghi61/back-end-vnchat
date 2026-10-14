@@ -1,0 +1,25 @@
+meta {
+  name: Guest reads messages
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/conversations/{{supportId}}/messages
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{visitorToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("sees the agent reply", function () {
+    expect(res.body.items.some((m) => m.text === "Chào bạn, mình hỗ trợ nhé")).to.equal(true);
+  });
+}

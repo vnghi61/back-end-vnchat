@@ -1,0 +1,25 @@
+meta {
+  name: Queue (agent)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/support/queue?status=waiting_agent
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("ticket is queued", function () {
+    expect(res.body.items.some((c) => c._id === bru.getVar("supportId"))).to.equal(true);
+  });
+}

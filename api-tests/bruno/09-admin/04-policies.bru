@@ -1,0 +1,25 @@
+meta {
+  name: Policies
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/admin/policies
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("admin rule present", function () {
+    expect(res.body.rules.some((r) => r.sub === "admin" && r.obj === "admin:*")).to.equal(true);
+  });
+}

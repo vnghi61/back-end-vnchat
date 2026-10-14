@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "back-end-vnchat",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

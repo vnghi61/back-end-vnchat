@@ -1,0 +1,25 @@
+meta {
+  name: Settings
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/admin/settings
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("has widget settings", function () {
+    expect(res.body.widget).to.have.property("enabled");
+  });
+}

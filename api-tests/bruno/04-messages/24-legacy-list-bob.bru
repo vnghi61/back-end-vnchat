@@ -1,0 +1,26 @@
+meta {
+  name: Legacy list (Bob)
+  type: http
+  seq: 24
+}
+
+get {
+  url: {{baseUrl}}/api/messages/{{aliceId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("array of messages", function () {
+    expect(res.body).to.be.an("array");
+    expect(res.body.at(-1).text).to.equal("API cũ vẫn chạy");
+  });
+}

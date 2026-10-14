@@ -1,0 +1,25 @@
+meta {
+  name: Close poll
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/polls/{{pollId}}/close
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("closed", function () {
+    expect(res.body.status).to.equal("closed");
+  });
+}

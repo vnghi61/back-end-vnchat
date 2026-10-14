@@ -1,0 +1,22 @@
+meta {
+  name: Hidden message is 404 for Bob
+  type: http
+  seq: 18
+}
+
+get {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages/{{messageId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+tests {
+  test("404 CHAT-404-003", function () {
+    expect(res.status).to.equal(404);
+    expect(res.body.code).to.equal("CHAT-404-003");
+  });
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Guest closes
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/support/conversations/{{supportId}}/close
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{visitorToken}}
+}
+
+tests {
+  test("status 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}

@@ -1,0 +1,22 @@
+meta {
+  name: Token revoked
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("401 CHAT-401-002", function () {
+    expect(res.status).to.equal(401);
+    expect(res.body.code).to.equal("CHAT-401-002");
+  });
+}

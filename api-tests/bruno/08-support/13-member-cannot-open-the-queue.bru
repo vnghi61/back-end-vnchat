@@ -1,0 +1,22 @@
+meta {
+  name: Member cannot open the queue
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/support/queue
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+tests {
+  test("403 CHAT-403-006", function () {
+    expect(res.status).to.equal(403);
+    expect(res.body.code).to.equal("CHAT-403-006");
+  });
+}

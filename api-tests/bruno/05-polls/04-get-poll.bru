@@ -1,0 +1,26 @@
+meta {
+  name: Get poll
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/polls/{{pollId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("counted", function () {
+    expect(res.body.options[0].count).to.equal(1);
+    expect(res.body.votersCount).to.equal(1);
+  });
+}

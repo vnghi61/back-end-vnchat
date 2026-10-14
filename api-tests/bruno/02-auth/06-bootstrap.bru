@@ -1,0 +1,26 @@
+meta {
+  name: Bootstrap
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/me/bootstrap
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("has limits and serverTime", function () {
+    expect(res.body.limits.maxMessageChars).to.be.above(0);
+    expect(res.body.serverTime).to.be.a("string");
+  });
+}

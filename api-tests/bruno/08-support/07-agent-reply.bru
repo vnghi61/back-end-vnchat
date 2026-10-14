@@ -1,0 +1,27 @@
+meta {
+  name: Agent reply
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{supportId}}/messages
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {
+    "text": "Chào bạn, mình hỗ trợ nhé"
+  }
+}
+
+tests {
+  test("status 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}

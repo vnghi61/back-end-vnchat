@@ -1,0 +1,28 @@
+meta {
+  name: Agent cannot reply before assign
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{supportId}}/messages
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {
+    "text": "chưa nhận"
+  }
+}
+
+tests {
+  test("403 CHAT-403-003", function () {
+    expect(res.status).to.equal(403);
+    expect(res.body.code).to.equal("CHAT-403-003");
+  });
+}

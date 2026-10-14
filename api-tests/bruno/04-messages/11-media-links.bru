@@ -1,0 +1,25 @@
+meta {
+  name: Media links
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/api/conversations/{{directId}}/media?kind=link
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("edited message has a link", function () {
+    expect(res.body.items.length).to.be.at.least(1);
+  });
+}

@@ -1,0 +1,31 @@
+meta {
+  name: Add reaction (Bob)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages/{{messageId}}/reactions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+body:json {
+  {
+    "emoji": "👍"
+  }
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("mine", function () {
+    expect(res.body.reactions[0].mine).to.equal(true);
+  });
+}

@@ -1,0 +1,31 @@
+meta {
+  name: Pin (Bob)
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{directId}}/pin
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+body:json {
+  {
+    "pinned": true
+  }
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("pinned", function () {
+    expect(res.body.pinned).to.equal(true);
+  });
+}

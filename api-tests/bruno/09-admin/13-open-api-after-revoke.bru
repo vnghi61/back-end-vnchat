@@ -1,0 +1,22 @@
+meta {
+  name: Open API after revoke
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/open/v1/conversations/{{supportId}}
+  body: none
+  auth: none
+}
+
+headers {
+  X-Api-Key: {{apiKey}}
+}
+
+tests {
+  test("401 CHAT-401-005", function () {
+    expect(res.status).to.equal(401);
+    expect(res.body.code).to.equal("CHAT-401-005");
+  });
+}

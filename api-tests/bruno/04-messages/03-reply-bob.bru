@@ -1,0 +1,32 @@
+meta {
+  name: Reply (Bob)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+body:json {
+  {
+    "text": "Chào Alice",
+    "replyTo": "{{messageId}}"
+  }
+}
+
+tests {
+  test("status 201", function () {
+    expect(res.status).to.equal(201);
+  });
+
+  test("has reply preview", function () {
+    expect(res.body.replyPreview._id).to.equal(bru.getVar("messageId"));
+  });
+}

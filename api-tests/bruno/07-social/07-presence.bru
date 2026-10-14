@@ -1,0 +1,25 @@
+meta {
+  name: Presence
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/presence?ids={{aliceId}},{{bobId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("Alice online via heartbeat", function () {
+    expect(res.body.find((p) => p.userId === bru.getVar("aliceId")).online).to.equal(true);
+  });
+}

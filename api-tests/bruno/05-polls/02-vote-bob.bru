@@ -1,0 +1,33 @@
+meta {
+  name: Vote (Bob)
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{baseUrl}}/api/polls/{{pollId}}/votes
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+body:json {
+  {
+    "optionIds": [
+      "o1"
+    ]
+  }
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("my vote", function () {
+    expect(res.body.myOptionIds).to.deep.equal(["o1"]);
+  });
+}

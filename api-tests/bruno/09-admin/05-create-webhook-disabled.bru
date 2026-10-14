@@ -1,0 +1,40 @@
+meta {
+  name: Create webhook (disabled)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/admin/webhooks
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {
+    "name": "Bruno hook",
+    "url": "https://example.com/hooks/vnchat",
+    "events": [
+      "message.created"
+    ],
+    "enabled": false
+  }
+}
+
+script:post-response {
+  bru.setVar("webhookId", res.body.webhook._id);
+}
+
+tests {
+  test("status 201", function () {
+    expect(res.status).to.equal(201);
+  });
+
+  test("secret shown once", function () {
+    expect(res.body.secret).to.have.length(64);
+  });
+}

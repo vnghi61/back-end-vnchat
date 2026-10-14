@@ -1,0 +1,46 @@
+# Môi trường chạy thử bằng Docker (giống image deploy lên Render):
+#   docker compose up -d --build     → API http://localhost:5001, docs http://localhost:5001/api-docs
+#   docker compose up -d mongo       → chỉ MongoDB cho `npm run dev` trên máy (MONGODB_URI=mongodb://127.0.0.1:27017/vnchat)
+#   docker compose down              → dừng (thêm -v để xoá dữ liệu)
+# Cloudinary/secret đọc từ .env (cp .env.example .env).
+
+name: vnchat
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      args:
+        APP_VERSION: local
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: 5001
+      MONGODB_URI: mongodb://mongo:27017/vnchat
+      JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:5174}
+      # chạy local qua http: cookie Secure sẽ không được gửi → dùng Bearer token, hoặc đặt NODE_ENV=development
+    ports:
+      - "5001:5001"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+volumes:
+  mongo-data:

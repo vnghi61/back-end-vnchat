@@ -1,0 +1,33 @@
+meta {
+  name: Forward to group
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages/{{messageId}}/forward
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "conversationIds": [
+      "{{groupId}}"
+    ]
+  }
+}
+
+tests {
+  test("status 201", function () {
+    expect(res.status).to.equal(201);
+  });
+
+  test("forwarded", function () {
+    expect(res.body.results[0].message.forwardedFrom.messageId).to.equal(bru.getVar("messageId"));
+  });
+}

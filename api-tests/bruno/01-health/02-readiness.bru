@@ -1,0 +1,21 @@
+meta {
+  name: Readiness
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/health/ready
+  body: none
+  auth: none
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("mongo connected", function () {
+    expect(res.body.checks.mongo).to.equal(true);
+  });
+}

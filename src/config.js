@@ -19,12 +19,20 @@ const list = (name, def) => {
 
 export const config = {
   env: process.env.NODE_ENV || "development",
+  version: process.env.APP_VERSION || process.env.RENDER_GIT_COMMIT?.slice(0, 7) || "dev",
   port: int("PORT", 5001),
   corsOrigins: list("CLIENT_URL", ["http://localhost:5174"]),
   jsonBodyLimit: process.env.JSON_BODY_LIMIT || "10mb",
+  apiDocsEnabled: bool("API_DOCS_ENABLED", true),
+  // thư mục build frontend khi muốn phục vụ chung process (production)
+  frontendDist: process.env.FRONTEND_DIST || "../frontend/dist",
 
   jwtSecret: process.env.JWT_SECRET,
   sessionTtlDays: int("SESSION_TTL_DAYS", 7),
+  // strict (mặc định) | lax | none – frontend khác domain với API mà vẫn dùng cookie thì đặt none (luôn kèm Secure)
+  cookieSameSite: ["strict", "lax", "none"].includes((process.env.COOKIE_SAMESITE ?? "").toLowerCase())
+    ? process.env.COOKIE_SAMESITE.toLowerCase()
+    : "strict",
   visitorSecret: process.env.VISITOR_SECRET || process.env.JWT_SECRET,
 
   cloudinaryFolder: process.env.CLOUDINARY_FOLDER || "vnchat",

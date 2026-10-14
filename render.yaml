@@ -1,0 +1,46 @@
+# Render Blueprint – Dashboard → New → Blueprint → chọn repo vnghi61/back-end-vnchat.
+# Hướng dẫn đầy đủ (MongoDB Atlas, Cloudinary, frontend, giới hạn gói free): docs/deployment.md
+#
+# - Một web service chạy image từ Dockerfile: API + Socket.IO + việc nền (nhắc việc, poll, webhook) cùng process.
+#   Presence/rate limit nằm trong bộ nhớ → giữ đúng 1 instance.
+# - autoDeployTrigger: checksPass → Render chỉ deploy commit đã qua GitHub Actions (.github/workflows/ci.yml).
+# - Render tự đặt PORT; app đọc PORT. Health check dùng /health (không chạm Mongo).
+services:
+  - type: web
+    name: back-end-vnchat
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # MongoDB Atlas (Render không có Mongo managed): mongodb+srv://<user>:<pass>@<cluster>/vnchat?retryWrites=true&w=majority
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: VISITOR_SECRET
+        generateValue: true
+      # Origin của frontend, nhiều origin cách nhau dấu phẩy (CORS HTTP + Socket.IO)
+      - key: CLIENT_URL
+        sync: false
+      # Frontend khác domain với *.onrender.com mà vẫn dùng cookie → none (kèm Secure).
+      # Khuyến nghị client gửi Authorization: Bearer <token> (Safari chặn cookie bên thứ ba).
+      - key: COOKIE_SAMESITE
+        value: none
+      # Proxy nội bộ của Render – để rate limit theo IP thật của client (giống fluentra)
+      - key: TRUST_PROXY
+        value: 10.0.0.0/8
+      - key: CLOUDINAR_CLOUD_NAME
+        sync: false
+      - key: CLOUDINAR_API_KEY
+        sync: false
+      - key: CLOUDINAR_SECRECT_KEY
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        value: vnchat
+      - key: API_DOCS_ENABLED
+        value: "true"

@@ -1,0 +1,32 @@
+meta {
+  name: Edit
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages/{{messageId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "text": "Xin chào, đã sửa https://example.com"
+  }
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("edited with link", function () {
+    expect(res.body.editedAt).to.be.a("string");
+    expect(res.body.links).to.include("https://example.com");
+  });
+}

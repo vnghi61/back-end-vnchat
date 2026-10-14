@@ -8,7 +8,12 @@
     "start": "node src/index.js",
     "test": "node --test --test-concurrency=1 \"test/*.test.js\"",
     "migrate": "node src/scripts/migrate.js",
-    "set-roles": "node src/scripts/set-roles.js"
+    "set-roles": "node src/scripts/set-roles.js",
+    "test:api": "cd api-tests/bruno && npx --yes @usebruno/cli@4.1.0 run --env local",
+    "docker:up": "docker compose up -d --build --wait",
+    "docker:down": "docker compose down",
+    "test:db": "docker run -d --name vnchat-test-mongo --tmpfs /data/db -p 127.0.0.1:27018:27017 mongo:7",
+    "test:db:stop": "docker rm -f vnchat-test-mongo"
   },
   "keywords": [],
   "author": "",
@@ -29,7 +34,8 @@
   "devDependencies": {
     "nodemon": "^3.1.9",
     "socket.io-client": "^4.8.1",
-    "supertest": "^7.0.0"
+    "supertest": "^7.0.0",
+    "yaml": "^2.6.1"
   },
   "engines": {
     "node": ">=20"

@@ -1,0 +1,25 @@
+meta {
+  name: List nicknames
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/nicknames
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("has Bob", function () {
+    expect(res.body.items[0].nickname).to.equal("Bob đẹp trai");
+  });
+}

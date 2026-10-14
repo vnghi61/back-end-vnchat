@@ -1,0 +1,38 @@
+meta {
+  name: Guest opens support
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/support/conversations
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{visitorToken}}
+}
+
+body:json {
+  {
+    "meta": {
+      "page": "/pricing"
+    },
+    "text": "Cho mình hỏi giá gói"
+  }
+}
+
+script:post-response {
+  bru.setVar("supportId", res.body._id);
+}
+
+tests {
+  test("status 201", function () {
+    expect(res.status).to.equal(201);
+  });
+
+  test("waiting for an agent", function () {
+    expect(res.body.support.status).to.equal("waiting_agent");
+  });
+}

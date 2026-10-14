@@ -1,0 +1,27 @@
+meta {
+  name: Set nickname
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{baseUrl}}/api/users/{{bobId}}/nickname
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "nickname": "Bob đẹp trai"
+  }
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}

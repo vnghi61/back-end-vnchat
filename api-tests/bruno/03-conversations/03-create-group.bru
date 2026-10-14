@@ -1,0 +1,39 @@
+meta {
+  name: Create group
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/group
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "title": "Nhóm Bruno",
+    "memberIds": [
+      "{{bobId}}"
+    ]
+  }
+}
+
+script:post-response {
+  bru.setVar("groupId", res.body._id);
+}
+
+tests {
+  test("status 201", function () {
+    expect(res.status).to.equal(201);
+  });
+
+  test("creator is owner", function () {
+    expect(res.body.myRole).to.equal("owner");
+    expect(res.body.memberCount).to.equal(2);
+  });
+}

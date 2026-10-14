@@ -1,0 +1,25 @@
+meta {
+  name: List pins
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/conversations/{{directId}}/pins
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("one pin", function () {
+    expect(res.body.items.length).to.equal(1);
+  });
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Delete webhook
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{baseUrl}}/api/admin/webhooks/{{webhookId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+tests {
+  test("status 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}

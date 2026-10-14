@@ -1,0 +1,25 @@
+meta {
+  name: Search (no accents)
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/messages/search?q=sua
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("finds the edited message", function () {
+    expect(res.body.items.some((m) => m._id === bru.getVar("messageId"))).to.equal(true);
+  });
+}

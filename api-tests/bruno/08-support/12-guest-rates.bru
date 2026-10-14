@@ -1,0 +1,28 @@
+meta {
+  name: Guest rates
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/support/conversations/{{supportId}}/rate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{visitorToken}}
+}
+
+body:json {
+  {
+    "rating": 5,
+    "note": "Nhanh"
+  }
+}
+
+tests {
+  test("status 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}

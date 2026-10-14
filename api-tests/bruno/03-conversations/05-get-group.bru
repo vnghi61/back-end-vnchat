@@ -1,0 +1,21 @@
+meta {
+  name: Get group
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/conversations/{{groupId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}
