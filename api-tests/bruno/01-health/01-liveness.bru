@@ -1,0 +1,21 @@
+meta {
+  name: Liveness
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: none
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("status ok", function () {
+    expect(res.body.status).to.equal("ok");
+  });
+}

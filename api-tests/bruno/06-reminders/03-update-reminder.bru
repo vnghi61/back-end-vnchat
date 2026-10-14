@@ -1,0 +1,27 @@
+meta {
+  name: Update reminder
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{baseUrl}}/api/reminders/{{reminderId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "note": "Gọi lại lúc 9h"
+  }
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}

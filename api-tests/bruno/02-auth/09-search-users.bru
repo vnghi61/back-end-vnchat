@@ -1,0 +1,25 @@
+meta {
+  name: Search users
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/users?q=bob
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("finds Bob", function () {
+    expect(res.body.items.some((u) => u._id === bru.getVar("bobId"))).to.equal(true);
+  });
+}

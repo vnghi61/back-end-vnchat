@@ -1,0 +1,36 @@
+meta {
+  name: Admin login
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{adminEmail}}",
+    "password": "{{adminPassword}}"
+  }
+}
+
+script:post-response {
+  bru.setVar("adminToken", res.body.token);
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("has agent role", function () {
+    expect(res.body.roles).to.include("agent");
+  });
+}
+
+docs {
+  Cần một tài khoản admin+agent: đăng ký rồi chạy `npm run set-roles -- <email> admin,agent,member`, điền adminEmail/adminPassword trong environment.
+}

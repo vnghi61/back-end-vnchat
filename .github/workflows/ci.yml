@@ -1,0 +1,104 @@
+name: ci
+
+# Render deploy với autoDeployTrigger: checksPass (render.yaml) → chỉ commit qua được workflow này mới lên production.
+# Mọi `uses:` pin theo commit SHA (tag có thể bị trỏ sang code khác); comment bên cạnh là version dễ đọc.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [master, main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mongo:
+        image: mongo:7
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok'"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # test/openapi.test.js chặn api/openapi.yaml lệch route thật
+      - name: Run tests
+        env:
+          MONGODB_TEST_URI: mongodb://127.0.0.1:27017
+        run: npm test
+
+  docker:
+    name: Docker image + API tests (Bruno)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mongo:
+        image: mongo:7
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok'"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+
+      # Cùng Dockerfile mà Render build
+      - name: Build image
+        run: docker build --build-arg APP_VERSION=${GITHUB_SHA::7} -t back-end-vnchat:ci .
+
+      - name: Start container
+        run: |
+          docker run -d --name vnchat --network host \
+            -e MONGODB_URI=mongodb://127.0.0.1:27017/vnchat_ci \
+            -e JWT_SECRET=ci-jwt-secret \
+            -e PORT=5001 \
+            -e CLIENT_URL=http://localhost:5174 \
+            back-end-vnchat:ci
+          curl --retry 30 --retry-delay 2 --retry-all-errors -sf http://127.0.0.1:5001/health/ready
+          curl -sf http://127.0.0.1:5001/api-docs/openapi.yaml > /dev/null
+
+      - name: Seed admin for the support/admin folders
+        run: |
+          curl -sf -X POST http://127.0.0.1:5001/api/auth/signup \
+            -H 'Content-Type: application/json' \
+            -d '{"name":"CI Admin","email":"admin@ci.test","password":"ci-admin-secret"}' > /dev/null
+          docker exec vnchat node src/scripts/set-roles.js admin@ci.test admin,agent,member
+
+      - name: Run Bruno collection
+        working-directory: api-tests/bruno
+        run: npx --yes @usebruno/cli@4.1.0 run --env ci
+
+      # Render gửi SIGTERM khi deploy bản mới: process phải thoát sạch (exit 0)
+      - name: Graceful shutdown
+        run: |
+          docker stop vnchat
+          test "$(docker inspect vnchat --format '{{.State.ExitCode}}')" = "0"
+
+      - name: Container logs
+        if: failure()
+        run: docker logs vnchat || true

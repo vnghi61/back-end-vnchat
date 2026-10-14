@@ -1,0 +1,42 @@
+meta {
+  name: Create reminder
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/reminders
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "note": "Gọi lại cho Bob",
+    "remindAt": "{{remindAt}}",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "conversationId": "{{directId}}"
+  }
+}
+
+script:pre-request {
+  bru.setVar("remindAt", new Date(Date.now() + 3600 * 1000).toISOString());
+}
+
+script:post-response {
+  bru.setVar("reminderId", res.body._id);
+}
+
+tests {
+  test("status 201", function () {
+    expect(res.status).to.equal(201);
+  });
+
+  test("local time in +07:00", function () {
+    expect(res.body.remindAtLocal).to.match(/\+07:00$/);
+  });
+}

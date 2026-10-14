@@ -1,0 +1,27 @@
+meta {
+  name: Typing
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{directId}}/typing
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "typing": true
+  }
+}
+
+tests {
+  test("status 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}

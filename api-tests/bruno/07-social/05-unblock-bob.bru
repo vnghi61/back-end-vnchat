@@ -1,0 +1,21 @@
+meta {
+  name: Unblock Bob
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/api/blocks/{{bobId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}

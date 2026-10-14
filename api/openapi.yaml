@@ -1,0 +1,1486 @@
+openapi: 3.1.0
+info:
+  title: VNChat API
+  version: 1.0.0
+  description: |
+    Backend chat realtime (Express 5 · MongoDB · Socket.IO · Cloudinary).
+
+    **Xác thực**: cookie `jwt` (web, set khi signup/login) hoặc `Authorization: Bearer <token>` (token trả trong body
+    signup/login). Khách widget lấy token ở `POST /api/widget/sessions`. Đối tác dùng `X-Api-Key: ck_...` cho `/api/open/v1`.
+
+    **Lỗi**: `{ "message": "...", "code": "CHAT-403-003", "fields"?: [{field, message}] }` – xử lý theo `code`.
+
+    **Phân trang**: `{ items, nextCursor, hasMore }`; gửi lại `?cursor=<nextCursor>` (tin nhắn: `?before=` / `?after=`).
+
+    **Realtime**: Socket.IO cùng origin (`auth: { token }` hoặc cookie với `withCredentials`) – xem docs/realtime.md.
+servers:
+  - url: http://localhost:5001
+    description: Local
+  - url: https://{host}
+    description: Render / production
+    variables:
+      host:
+        default: back-end-vnchat.onrender.com
+security:
+  - bearerAuth: []
+  - cookieAuth: []
+tags:
+  - name: Health
+  - name: Auth
+  - name: Me
+  - name: Users
+  - name: Conversations
+  - name: Messages
+  - name: Polls
+  - name: Reminders
+  - name: Social
+  - name: Files
+  - name: Support (customer)
+  - name: Support (agent)
+  - name: Admin
+  - name: Open API
+  - name: Legacy
+    description: API của bản cũ – giữ nguyên để client hiện tại không vỡ.
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { status: { type: string, example: ok }, version: { type: string } } }
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Readiness (MongoDB)
+      security: []
+      responses:
+        "200": { description: Sẵn sàng }
+        "503": { description: Mongo chưa kết nối }
+
+  # ======================= Auth =======================
+  /api/auth/signup:
+    post:
+      tags: [Auth]
+      summary: Đăng ký (set cookie jwt + trả token)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string, example: Nguyễn Văn A }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 6 }
+      responses:
+        "201": { $ref: "#/components/responses/AuthOk" }
+        "400": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Đăng nhập
+      description: Sai email hay sai mật khẩu đều trả `CHAT-400-015`. Tài khoản khoá → `CHAT-403-002`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+                device: { type: string, description: Nhãn thiết bị hiển thị trong danh sách session }
+      responses:
+        "200": { $ref: "#/components/responses/AuthOk" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Đăng xuất (thu hồi session hiện tại, xoá cookie)
+      responses:
+        "200": { description: OK }
+  /api/auth/logout-all:
+    post:
+      tags: [Auth]
+      summary: Đăng xuất mọi thiết bị
+      responses:
+        "200": { description: OK }
+        "401": { $ref: "#/components/responses/Error" }
+  /api/auth/sessions:
+    get:
+      tags: [Auth]
+      summary: Danh sách session đang hoạt động
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Session" } }
+  /api/auth/sessions/{id}:
+    delete:
+      tags: [Auth]
+      summary: Thu hồi một session
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "204": { description: Đã thu hồi }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/auth/update-profile:
+    put:
+      tags: [Legacy]
+      summary: Đổi ảnh đại diện (API cũ)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profileImage]
+              properties:
+                profileImage: { type: string, description: data URI hoặc URL ảnh }
+      responses:
+        "200": { description: User sau cập nhật }
+  /api/auth/check:
+    get:
+      tags: [Legacy]
+      summary: Người dùng hiện tại (API cũ)
+      responses:
+        "200": { description: User (không có password) }
+        "401": { $ref: "#/components/responses/Error" }
+
+  /api/widget/sessions:
+    post:
+      tags: [Support (customer)]
+      summary: Phiên khách widget (không cần tài khoản)
+      description: Gửi lại `visitorToken` để nối đúng danh tính khách cũ. Widget tắt → `CHAT-403-001`.
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                visitorToken: { type: string, example: v1.0123456789abcdef01234567.0123456789abcdef0123456789abcdef }
+      responses:
+        "201":
+          description: Session khách
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: "#/components/schemas/UserBrief" }
+                  token: { type: string }
+                  visitorToken: { type: string }
+                  welcomeMessage: { type: string }
+        "403": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+
+  # ======================= Me / Users =======================
+  /api/me:
+    get:
+      tags: [Me]
+      summary: Hồ sơ của tôi
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UserProfile" } } } }
+    patch:
+      tags: [Me]
+      summary: Sửa tên / ảnh đại diện
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 100 }
+                profileImage: { type: string, description: URL http(s), data URI ảnh, hoặc "" để xoá }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UserProfile" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/me/bootstrap:
+    get:
+      tags: [Me]
+      summary: Dữ liệu khởi động client
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  me: { $ref: "#/components/schemas/UserProfile" }
+                  permissions: { type: object, properties: { admin: { type: boolean }, agent: { type: boolean } } }
+                  branding: { type: object }
+                  features: { type: object, properties: { realtime: { type: boolean }, uploads: { type: boolean }, support: { type: boolean } } }
+                  limits: { type: object }
+                  commandRules: { type: array, items: { type: object } }
+                  unreadTotal: { type: integer }
+                  nicknames: { type: object, additionalProperties: { type: string } }
+                  blockedUserIds: { type: array, items: { type: string } }
+                  serverTime: { type: string, format: date-time }
+  /api/sync:
+    get:
+      tags: [Me]
+      summary: Bù dữ liệu sau khi mất kết nối
+      parameters:
+        - { name: since, in: query, required: true, schema: { type: string, format: date-time } }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations: { type: array, items: { $ref: "#/components/schemas/Conversation" } }
+                  messages: { type: array, items: { $ref: "#/components/schemas/Message" } }
+                  until: { type: string, format: date-time }
+                  hasMore: { type: boolean }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/users:
+    get:
+      tags: [Users]
+      summary: Tìm người dùng (tên không dấu / đầu email)
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: excludeMe, in: query, schema: { type: boolean, default: true } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200": { $ref: "#/components/responses/PagedUsers" }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/users/{id}:
+    get:
+      tags: [Users]
+      summary: Thông tin một người dùng
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UserProfile" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/users/{id}/nickname:
+    put:
+      tags: [Social]
+      summary: Đặt biệt danh riêng
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [nickname], properties: { nickname: { type: string, minLength: 1, maxLength: 64 } } } } }
+      responses:
+        "200": { description: OK }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Social]
+      summary: Xoá biệt danh
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "204": { description: OK }
+  /api/nicknames:
+    get:
+      tags: [Social]
+      summary: Danh sách biệt danh của tôi
+      parameters: [{ $ref: "#/components/parameters/cursor" }, { $ref: "#/components/parameters/limit" }]
+      responses:
+        "200": { description: "{ items: [{userId, nickname, updatedAt}], nextCursor, hasMore }" }
+  /api/blocks:
+    get:
+      tags: [Social]
+      summary: Danh sách người tôi đã chặn
+      parameters: [{ $ref: "#/components/parameters/cursor" }, { $ref: "#/components/parameters/limit" }]
+      responses:
+        "200": { description: "{ items: [{user, blockedAt}], nextCursor, hasMore }" }
+  /api/blocks/{userId}:
+    post:
+      tags: [Social]
+      summary: Chặn (hai chiều mọi tương tác 1-1)
+      parameters: [{ $ref: "#/components/parameters/userId" }]
+      responses:
+        "201": { description: "{ user, blockedAt }" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Social]
+      summary: Bỏ chặn
+      parameters: [{ $ref: "#/components/parameters/userId" }]
+      responses:
+        "204": { description: OK }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/presence/heartbeat:
+    post:
+      tags: [Social]
+      summary: Heartbeat thiết bị (client không dùng socket)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/DeviceBody" } } }
+      responses:
+        "204": { description: OK }
+  /api/presence:
+    get:
+      tags: [Social]
+      summary: Trạng thái online
+      parameters:
+        - { name: ids, in: query, required: true, description: "≤200 id, cách nhau dấu phẩy", schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, properties: { userId: { type: string }, online: { type: boolean }, lastSeenAt: { type: [string, "null"], format: date-time } } }
+    delete:
+      tags: [Social]
+      summary: Gỡ thiết bị (offline)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/DeviceBody" } } }
+      responses:
+        "204": { description: OK }
+  /api/stickers:
+    get:
+      tags: [Messages]
+      summary: Catalogue sticker
+      responses:
+        "200": { description: "[{ id, name, stickers: [{id, name, emoji, url}] }]" }
+  /api/files/signature:
+    post:
+      tags: [Files]
+      summary: Chữ ký upload thẳng lên Cloudinary
+      description: |
+        Client POST multipart tới `uploadUrl` với `file`, `api_key`, `timestamp`, `folder`, `signature`, rồi gửi tin với
+        `attachments: [{ url: secure_url, publicId: public_id, name, size: bytes, mime }]`.
+      requestBody:
+        content: { application/json: { schema: { type: object, properties: { conversationId: { type: string } } } } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cloudName: { type: string }
+                  apiKey: { type: string }
+                  timestamp: { type: integer }
+                  folder: { type: string }
+                  signature: { type: string }
+                  uploadUrl: { type: string }
+                  maxFileBytes: { type: integer }
+                  allowedMime: { type: array, items: { type: string } }
+        "503": { $ref: "#/components/responses/Error" }
+
+  # ======================= Conversations =======================
+  /api/conversations:
+    get:
+      tags: [Conversations]
+      summary: Inbox (mới nhất trước)
+      parameters:
+        - { name: kind, in: query, schema: { type: string, enum: [direct, group, support] } }
+        - { name: archived, in: query, schema: { type: boolean } }
+        - { name: pinned, in: query, schema: { type: boolean } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200": { $ref: "#/components/responses/PagedConversations" }
+  /api/conversations/direct:
+    post:
+      tags: [Conversations]
+      summary: Mở hội thoại 1-1 (201 mới / 200 đã có)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [userId], properties: { userId: { type: string } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/ConversationOk" }
+        "201": { $ref: "#/components/responses/ConversationOk" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/conversations/group:
+    post:
+      tags: [Conversations]
+      summary: Tạo nhóm (người tạo là owner)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, memberIds]
+              properties:
+                title: { type: string, maxLength: 100 }
+                memberIds: { type: array, items: { type: string } }
+                avatarUrl: { type: string, format: uri }
+                avatar: { type: string, description: data URI ảnh }
+                historyVisibility: { type: string, enum: [all, since_join] }
+      responses:
+        "201": { $ref: "#/components/responses/ConversationOk" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/conversations/{id}:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get:
+      tags: [Conversations]
+      summary: Chi tiết hội thoại
+      responses:
+        "200": { $ref: "#/components/responses/ConversationOk" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [Conversations]
+      summary: Đổi tên / avatar / chính sách lịch sử (owner/admin nhóm)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                avatarUrl: { type: string }
+                avatar: { type: string }
+                historyVisibility: { type: string, enum: [all, since_join] }
+      responses:
+        "200": { $ref: "#/components/responses/ConversationOk" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/conversations/{id}/members:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get:
+      tags: [Conversations]
+      summary: Thành viên (owner → admin → agent → member → bot)
+      responses:
+        "200": { description: "[{ user, role, joinedAt, lastReadSeq, online }]" }
+    post:
+      tags: [Conversations]
+      summary: Thêm thành viên (owner/admin)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [memberIds], properties: { memberIds: { type: array, items: { type: string } } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/ConversationOk" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/conversations/{id}/members/{userId}:
+    parameters: [{ $ref: "#/components/parameters/id" }, { $ref: "#/components/parameters/userId" }]
+    patch:
+      tags: [Conversations]
+      summary: Đổi role thành viên (chỉ owner)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [role], properties: { role: { type: string, enum: [owner, admin, member] } } } } }
+      responses:
+        "204": { description: OK }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Conversations]
+      summary: Xoá thành viên (owner/admin)
+      responses:
+        "204": { description: OK }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/conversations/{id}/leave:
+    post:
+      tags: [Conversations]
+      summary: Rời nhóm
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "204": { description: OK }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/conversations/{id}/read:
+    post:
+      tags: [Conversations]
+      summary: Đánh dấu đã đọc tới seq (mặc định tin cuối)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        content: { application/json: { schema: { type: object, properties: { seq: { type: integer } } } } }
+      responses:
+        "204": { description: OK }
+  /api/conversations/{id}/mute:
+    post:
+      tags: [Conversations]
+      summary: Tắt thông báo (0 = bỏ, -1 = vô thời hạn)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [minutes], properties: { minutes: { type: integer, minimum: -1 } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/PrefsOk" }
+  /api/conversations/{id}/archive:
+    post:
+      tags: [Conversations]
+      summary: Lưu trữ (tin mới tự bỏ lưu trữ)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [archived], properties: { archived: { type: boolean } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/PrefsOk" }
+  /api/conversations/{id}/pin:
+    post:
+      tags: [Conversations]
+      summary: Ghim hội thoại (riêng tôi)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [pinned], properties: { pinned: { type: boolean } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/PrefsOk" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/conversations/{id}/typing:
+    post:
+      tags: [Conversations]
+      summary: Đang nhập (hoặc socket event `typing`)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [typing], properties: { typing: { type: boolean } } } } }
+      responses:
+        "204": { description: OK }
+
+  # ======================= Messages =======================
+  /api/conversations/{id}/messages:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get:
+      tags: [Messages]
+      summary: Tin nhắn (trang trả về cũ → mới)
+      parameters:
+        - { name: before, in: query, description: cursor seq – lùi về tin cũ, schema: { type: string } }
+        - { name: after, in: query, description: cursor seq – tiến tới tin mới, schema: { type: string } }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200": { $ref: "#/components/responses/PagedMessages" }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [Messages]
+      summary: Gửi tin (201; trùng clientMsgId → 200 tin cũ)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SendMessage" } } }
+      responses:
+        "200": { $ref: "#/components/responses/MessageOk" }
+        "201": { $ref: "#/components/responses/MessageOk" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /api/conversations/{id}/messages/{messageId}:
+    parameters: [{ $ref: "#/components/parameters/id" }, { $ref: "#/components/parameters/messageId" }]
+    get:
+      tags: [Messages]
+      summary: Một tin
+      responses:
+        "200": { $ref: "#/components/responses/MessageOk" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [Messages]
+      summary: Sửa tin (chỉ người gửi)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [text], properties: { text: { type: string } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/MessageOk" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Messages]
+      summary: Xoá mềm (người gửi hoặc owner/admin nhóm)
+      responses:
+        "204": { description: OK }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/conversations/{id}/messages/{messageId}/reactions:
+    post:
+      tags: [Messages]
+      summary: Thả reaction
+      parameters: [{ $ref: "#/components/parameters/id" }, { $ref: "#/components/parameters/messageId" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [emoji], properties: { emoji: { type: string, example: 👍 } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/MessageOk" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/conversations/{id}/messages/{messageId}/reactions/{emoji}:
+    delete:
+      tags: [Messages]
+      summary: Bỏ reaction (emoji URL-encode)
+      parameters:
+        - { $ref: "#/components/parameters/id" }
+        - { $ref: "#/components/parameters/messageId" }
+        - { name: emoji, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { $ref: "#/components/responses/MessageOk" }
+  /api/conversations/{id}/messages/{messageId}/pin:
+    parameters: [{ $ref: "#/components/parameters/id" }, { $ref: "#/components/parameters/messageId" }]
+    post:
+      tags: [Messages]
+      summary: Ghim tin (mọi thành viên)
+      responses:
+        "200": { $ref: "#/components/responses/MessageOk" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Messages]
+      summary: Bỏ ghim (owner/admin hoặc người ghim; direct ai cũng được)
+      responses:
+        "204": { description: OK }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/conversations/{id}/messages/{messageId}/hide:
+    parameters: [{ $ref: "#/components/parameters/id" }, { $ref: "#/components/parameters/messageId" }]
+    post:
+      tags: [Messages]
+      summary: Ẩn tin phía tôi
+      responses:
+        "204": { description: OK }
+    delete:
+      tags: [Messages]
+      summary: Bỏ ẩn
+      responses:
+        "204": { description: OK }
+  /api/conversations/{id}/messages/{messageId}/forward:
+    post:
+      tags: [Messages]
+      summary: Chuyển tiếp tới nhiều hội thoại
+      parameters: [{ $ref: "#/components/parameters/id" }, { $ref: "#/components/parameters/messageId" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [conversationIds], properties: { conversationIds: { type: array, items: { type: string }, maxItems: 10 } } } } }
+      responses:
+        "201":
+          description: Kết quả từng đích
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        conversationId: { type: string }
+                        message: { $ref: "#/components/schemas/Message" }
+                        error: { type: object, properties: { code: { type: string }, message: { type: string } } }
+  /api/conversations/{id}/pins:
+    get:
+      tags: [Messages]
+      summary: Tin đã ghim (mới ghim trước)
+      parameters: [{ $ref: "#/components/parameters/id" }, { $ref: "#/components/parameters/cursor" }, { $ref: "#/components/parameters/limit" }]
+      responses:
+        "200": { $ref: "#/components/responses/PagedMessages" }
+  /api/conversations/{id}/media:
+    get:
+      tags: [Messages]
+      summary: Thư viện media
+      parameters:
+        - { $ref: "#/components/parameters/id" }
+        - { name: kind, in: query, schema: { type: string, enum: [image, video, audio, file, link] } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200": { $ref: "#/components/responses/PagedMessages" }
+  /api/messages/search:
+    get:
+      tags: [Messages]
+      summary: Tìm tin nhắn (không phân biệt dấu)
+      parameters:
+        - { name: q, in: query, description: Bắt buộc khi không có conversationId, schema: { type: string } }
+        - { name: conversationId, in: query, schema: { type: string } }
+        - { name: senderId, in: query, schema: { type: string } }
+        - { name: type, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200": { $ref: "#/components/responses/PagedMessages" }
+        "400": { $ref: "#/components/responses/Error" }
+
+  # ======================= Polls =======================
+  /api/conversations/{id}/polls:
+    post:
+      tags: [Polls]
+      summary: Tạo bình chọn (đăng tin type=poll)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question, options]
+              properties:
+                question: { type: string, maxLength: 500 }
+                options: { type: array, minItems: 2, maxItems: 10, items: { type: string, maxLength: 200 } }
+                multiple: { type: boolean }
+                anonymous: { type: boolean }
+                closesAt: { type: string, format: date-time }
+                clientMsgId: { type: string }
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { poll: { $ref: "#/components/schemas/Poll" }, message: { $ref: "#/components/schemas/Message" } } }
+  /api/polls/{id}:
+    get:
+      tags: [Polls]
+      summary: Chi tiết bình chọn
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "200": { $ref: "#/components/responses/PollOk" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/polls/{id}/votes:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    put:
+      tags: [Polls]
+      summary: Thay toàn bộ phiếu của tôi
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [optionIds], properties: { optionIds: { type: array, items: { type: string, example: o1 } } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/PollOk" }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Polls]
+      summary: Rút phiếu
+      responses:
+        "204": { description: OK }
+  /api/polls/{id}/close:
+    post:
+      tags: [Polls]
+      summary: Đóng (người tạo / owner / admin nhóm)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "200": { $ref: "#/components/responses/PollOk" }
+        "403": { $ref: "#/components/responses/Error" }
+
+  # ======================= Reminders =======================
+  /api/reminders:
+    get:
+      tags: [Reminders]
+      summary: Nhắc việc của tôi
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [scheduled, fired, cancelled], default: scheduled } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200": { description: "{ items: Reminder[], nextCursor, hasMore }" }
+    post:
+      tags: [Reminders]
+      summary: Tạo nhắc việc (30 giây – 1 năm tới)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note, remindAt]
+              properties:
+                note: { type: string, maxLength: 1000 }
+                remindAt: { type: string, format: date-time, example: "2026-10-20T09:00:00+07:00" }
+                timezone: { type: string, example: Asia/Ho_Chi_Minh }
+                conversationId: { type: string }
+                messageId: { type: string }
+      responses:
+        "201": { $ref: "#/components/responses/ReminderOk" }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/reminders/{id}:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get:
+      tags: [Reminders]
+      summary: Một nhắc việc
+      responses:
+        "200": { $ref: "#/components/responses/ReminderOk" }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [Reminders]
+      summary: Sửa (chỉ khi scheduled)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string }
+                remindAt: { type: string, format: date-time }
+                timezone: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/ReminderOk" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Reminders]
+      summary: Huỷ
+      responses:
+        "204": { description: OK }
+        "409": { $ref: "#/components/responses/Error" }
+
+  # ======================= Support =======================
+  /api/support/conversations:
+    post:
+      tags: [Support (customer)]
+      summary: Mở yêu cầu hỗ trợ (201 mới / 200 đang mở)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                meta: { type: object, additionalProperties: { type: string }, example: { page: /pricing } }
+                text: { type: string, description: Tin nhắn đầu tiên }
+      responses:
+        "200": { $ref: "#/components/responses/ConversationOk" }
+        "201": { $ref: "#/components/responses/ConversationOk" }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/support/conversations/mine:
+    get:
+      tags: [Support (customer)]
+      summary: Yêu cầu hỗ trợ của tôi
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Conversation" } } } } }
+  /api/support/conversations/{id}/rate:
+    post:
+      tags: [Support (customer)]
+      summary: Đánh giá (chỉ khách)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [rating], properties: { rating: { type: integer, minimum: 1, maximum: 5 }, note: { type: string } } } } }
+      responses:
+        "204": { description: OK }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/support/conversations/{id}/close:
+    post:
+      tags: [Support (customer)]
+      summary: Đóng (khách hoặc nhân viên)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "204": { description: OK }
+  /api/support/queue:
+    get:
+      tags: [Support (agent)]
+      summary: Hàng đợi
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [open, waiting_agent, agent, closed, all], default: open } }
+        - { name: mine, in: query, schema: { type: boolean } }
+        - { name: tag, in: query, schema: { type: string } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200": { $ref: "#/components/responses/PagedConversations" }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/support/stats:
+    get:
+      tags: [Support (agent)]
+      summary: Thống kê
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  waiting_agent: { type: integer }
+                  agent: { type: integer }
+                  closed: { type: integer }
+                  mineOpen: { type: integer }
+                  averageRating: { type: [number, "null"] }
+                  rated: { type: integer }
+  /api/support/agents:
+    get:
+      tags: [Support (agent)]
+      summary: Nhân viên hỗ trợ (kèm online)
+      responses:
+        "200": { description: "[UserBrief + online]" }
+  /api/support/conversations/{id}/assign:
+    post:
+      tags: [Support (agent)]
+      summary: Nhận yêu cầu (admin gán được cho người khác)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        content: { application/json: { schema: { type: object, properties: { agentId: { type: string } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/ConversationOk" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/support/conversations/{id}/transfer:
+    post:
+      tags: [Support (agent)]
+      summary: Chuyển cho nhân viên khác
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [agentId], properties: { agentId: { type: string } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/ConversationOk" }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/support/conversations/{id}/release:
+    post:
+      tags: [Support (agent)]
+      summary: Trả về hàng đợi
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "200": { $ref: "#/components/responses/ConversationOk" }
+  /api/support/conversations/{id}/reopen:
+    post:
+      tags: [Support (agent)]
+      summary: Mở lại
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "200": { $ref: "#/components/responses/ConversationOk" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/support/conversations/{id}/tags:
+    put:
+      tags: [Support (agent)]
+      summary: Gắn tag
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [tags], properties: { tags: { type: array, items: { type: string } } } } } }
+      responses:
+        "204": { description: OK }
+
+  # ======================= Admin =======================
+  /api/admin/users:
+    get:
+      tags: [Admin]
+      summary: Người dùng (admin:principals read)
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: kind, in: query, schema: { type: string, enum: [user, visitor, bot] } }
+        - { name: status, in: query, schema: { type: string, enum: [active, inactive] } }
+        - { name: role, in: query, schema: { type: string, enum: [admin, agent, member] } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200": { $ref: "#/components/responses/PagedUsers" }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/admin/users/{id}/roles:
+    put:
+      tags: [Admin]
+      summary: Đổi role
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [roles], properties: { roles: { type: array, items: { type: string, enum: [admin, agent, member] } } } } } }
+      responses:
+        "200": { description: UserProfile }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/admin/users/{id}/status:
+    put:
+      tags: [Admin]
+      summary: Khoá / mở khoá (inactive thu hồi mọi session)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [status], properties: { status: { type: string, enum: [active, inactive] } } } } }
+      responses:
+        "200": { description: UserProfile }
+  /api/admin/webhooks:
+    get:
+      tags: [Admin]
+      summary: Danh sách webhook
+      responses:
+        "200": { description: "{ items: Webhook[], events: string[] }" }
+    post:
+      tags: [Admin]
+      summary: Tạo webhook (secret chỉ trả lần này)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/WebhookBody" } } }
+      responses:
+        "201": { description: "{ webhook, secret }" }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/admin/webhooks/{id}:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    put:
+      tags: [Admin]
+      summary: Sửa webhook
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/WebhookBody" } } }
+      responses:
+        "200": { description: Webhook }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Admin]
+      summary: Xoá webhook
+      responses:
+        "204": { description: OK }
+  /api/admin/webhooks/{id}/deliveries:
+    get:
+      tags: [Admin]
+      summary: 100 lần gửi gần nhất
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "200": { description: "[{ _id, event, status, attempts, lastStatusCode, lastError, deliveredAt, createdAt }]" }
+  /api/admin/webhooks/deliveries/{deliveryId}/redeliver:
+    post:
+      tags: [Admin]
+      summary: Gửi lại
+      parameters: [{ name: deliveryId, in: path, required: true, schema: { type: string } }]
+      responses:
+        "204": { description: OK }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/admin/settings:
+    get:
+      tags: [Admin]
+      summary: Cấu hình hệ thống
+      responses:
+        "200": { description: "{ branding, commandRules, stickerPacks, widget }" }
+    put:
+      tags: [Admin]
+      summary: Sửa cấu hình (field nào gửi thì thay field đó)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                branding: { type: object, properties: { appName: { type: string }, logoUrl: { type: string }, primaryColor: { type: string } } }
+                commandRules: { type: array, items: { type: object, properties: { name: { type: string }, description: { type: string }, enabled: { type: boolean } } } }
+                stickerPacks: { type: array, items: { type: object } }
+                widget: { type: object, properties: { enabled: { type: boolean }, welcomeMessage: { type: string } } }
+      responses:
+        "200": { description: Settings }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/admin/audit:
+    get:
+      tags: [Admin]
+      summary: Nhật ký thao tác
+      parameters:
+        - { name: actorId, in: query, schema: { type: string } }
+        - { name: action, in: query, schema: { type: string } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200": { description: "{ items, nextCursor, hasMore }" }
+  /api/admin/api-keys:
+    get:
+      tags: [Admin]
+      summary: API key đối tác
+      responses:
+        "200": { description: "{ items, scopes }" }
+    post:
+      tags: [Admin]
+      summary: Tạo API key (key chỉ trả lần này)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, scopes]
+              properties:
+                name: { type: string }
+                scopes: { type: array, items: { type: string, enum: [conversations:read, messages:read, messages:write, support:write] } }
+                expiresAt: { type: string, format: date-time }
+      responses:
+        "201": { description: "{ apiKey, key }" }
+  /api/admin/api-keys/{id}:
+    delete:
+      tags: [Admin]
+      summary: Thu hồi API key
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "204": { description: OK }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/admin/policies:
+    get:
+      tags: [Admin]
+      summary: Policy phân quyền
+      responses:
+        "200": { description: "{ rules: [{sub, obj, act}], objects, actions }" }
+    put:
+      tags: [Admin]
+      summary: Thay toàn bộ policy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rules]
+              properties:
+                rules:
+                  type: array
+                  items: { type: object, properties: { sub: { type: string }, obj: { type: string }, act: { type: string, enum: [read, write, "*"] } } }
+      responses:
+        "200": { description: Policy }
+        "400": { $ref: "#/components/responses/Error" }
+
+  # ======================= Open API =======================
+  /api/open/v1/conversations/{id}:
+    get:
+      tags: [Open API]
+      summary: Hội thoại hỗ trợ (conversations:read)
+      security: [{ apiKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "200": { $ref: "#/components/responses/ConversationOk" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/open/v1/conversations/{id}/messages:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get:
+      tags: [Open API]
+      summary: Tin nhắn (messages:read)
+      security: [{ apiKey: [] }]
+      parameters:
+        - { name: before, in: query, schema: { type: string } }
+        - { name: after, in: query, schema: { type: string } }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200": { $ref: "#/components/responses/PagedMessages" }
+    post:
+      tags: [Open API]
+      summary: Đăng tin dưới tên bot của key (messages:write)
+      security: [{ apiKey: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [text], properties: { text: { type: string }, clientMsgId: { type: string } } } } }
+      responses:
+        "201": { $ref: "#/components/responses/MessageOk" }
+  /api/open/v1/support/conversations/{id}/close:
+    post:
+      tags: [Open API]
+      summary: Đóng yêu cầu hỗ trợ (support:write)
+      security: [{ apiKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "204": { description: OK }
+
+  # ======================= Legacy =======================
+  /api/messages/users:
+    get:
+      tags: [Legacy]
+      summary: Danh sách người dùng cho sidebar
+      responses:
+        "200": { description: "User[] (không có password)" }
+  /api/messages/{id}:
+    get:
+      tags: [Legacy]
+      summary: Toàn bộ tin nhắn 1-1 với người dùng :id
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Message" } } } } }
+  /api/messages/send/{id}:
+    post:
+      tags: [Legacy]
+      summary: Gửi tin 1-1 (tự tạo hội thoại direct)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text: { type: string }
+                image: { type: string, description: data URI hoặc URL ảnh }
+                clientMsgId: { type: string }
+      responses:
+        "201": { $ref: "#/components/responses/MessageOk" }
+        "403": { $ref: "#/components/responses/Error" }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    cookieAuth: { type: apiKey, in: cookie, name: jwt }
+    apiKey: { type: apiKey, in: header, name: X-Api-Key }
+
+  parameters:
+    id: { name: id, in: path, required: true, schema: { type: string, pattern: "^[a-f0-9]{24}$" } }
+    userId: { name: userId, in: path, required: true, schema: { type: string, pattern: "^[a-f0-9]{24}$" } }
+    messageId: { name: messageId, in: path, required: true, schema: { type: string, pattern: "^[a-f0-9]{24}$" } }
+    cursor: { name: cursor, in: query, schema: { type: string } }
+    limit: { name: limit, in: query, schema: { type: integer, minimum: 1 } }
+
+  responses:
+    Error:
+      description: Lỗi
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    AuthOk:
+      description: Đăng nhập thành công (kèm Set-Cookie jwt)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              _id: { type: string }
+              name: { type: string }
+              email: { type: string }
+              kind: { type: string }
+              roles: { type: array, items: { type: string } }
+              profileImage: { type: string }
+              profileImg: { type: string, description: Field cũ, bằng profileImage }
+              token: { type: string }
+    ConversationOk:
+      description: OK
+      content: { application/json: { schema: { $ref: "#/components/schemas/Conversation" } } }
+    MessageOk:
+      description: OK
+      content: { application/json: { schema: { $ref: "#/components/schemas/Message" } } }
+    PollOk:
+      description: OK
+      content: { application/json: { schema: { $ref: "#/components/schemas/Poll" } } }
+    ReminderOk:
+      description: OK
+      content: { application/json: { schema: { $ref: "#/components/schemas/Reminder" } } }
+    PrefsOk:
+      description: Tuỳ chọn riêng của tôi
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              conversationId: { type: string }
+              muted: { type: boolean }
+              mutedUntil: { type: [string, "null"], format: date-time }
+              mutedForever: { type: boolean }
+              pinned: { type: boolean }
+              pinnedAt: { type: [string, "null"], format: date-time }
+              archived: { type: boolean }
+    PagedConversations:
+      description: OK
+      content:
+        application/json:
+          schema:
+            allOf:
+              - { $ref: "#/components/schemas/Page" }
+              - { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Conversation" } } } }
+    PagedMessages:
+      description: OK
+      content:
+        application/json:
+          schema:
+            allOf:
+              - { $ref: "#/components/schemas/Page" }
+              - { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Message" } } } }
+    PagedUsers:
+      description: OK
+      content:
+        application/json:
+          schema:
+            allOf:
+              - { $ref: "#/components/schemas/Page" }
+              - { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/UserProfile" } } } }
+
+  schemas:
+    Error:
+      type: object
+      required: [message, code]
+      properties:
+        message: { type: string }
+        code: { type: string, example: CHAT-403-003 }
+        fields: { type: array, items: { type: object, properties: { field: { type: string }, message: { type: string } } } }
+    Page:
+      type: object
+      properties:
+        nextCursor: { type: [string, "null"] }
+        hasMore: { type: boolean }
+    UserBrief:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        profileImage: { type: string }
+        kind: { type: string, enum: [user, visitor, bot] }
+    UserProfile:
+      allOf:
+        - { $ref: "#/components/schemas/UserBrief" }
+        - type: object
+          properties:
+            email: { type: string, description: Chỉ trả cho chính mình hoặc admin }
+            roles: { type: array, items: { type: string } }
+            status: { type: string, enum: [active, inactive] }
+            online: { type: boolean }
+            lastSeenAt: { type: [string, "null"], format: date-time }
+            createdAt: { type: string, format: date-time }
+    Session:
+      type: object
+      properties:
+        _id: { type: string }
+        userAgent: { type: string }
+        ip: { type: string }
+        device: { type: string }
+        createdAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        current: { type: boolean }
+    DeviceBody:
+      type: object
+      required: [deviceId]
+      properties: { deviceId: { type: string, maxLength: 100 } }
+    Attachment:
+      type: object
+      properties:
+        url: { type: string }
+        publicId: { type: string }
+        name: { type: string }
+        size: { type: integer }
+        mime: { type: string }
+        kind: { type: string, enum: [image, video, audio, file] }
+        width: { type: integer }
+        height: { type: integer }
+    SendMessage:
+      type: object
+      properties:
+        type: { type: string, enum: [text, sticker], default: text }
+        text: { type: string, maxLength: 8000 }
+        clientMsgId: { type: string, description: Idempotency – gửi lại cùng giá trị trả về tin cũ }
+        replyTo: { type: string }
+        mentions: { type: array, items: { type: string } }
+        attachments:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            description: "`data` (data URI, server upload) hoặc file đã upload thẳng `{url, publicId, name, size, mime}`"
+            properties:
+              data: { type: string }
+              url: { type: string }
+              publicId: { type: string }
+              name: { type: string }
+              size: { type: integer }
+              mime: { type: string }
+        sticker: { type: object, properties: { packId: { type: string }, stickerId: { type: string } } }
+    Message:
+      type: object
+      properties:
+        _id: { type: string }
+        conversationId: { type: string }
+        seq: { type: integer }
+        senderId: { type: string }
+        sender: { $ref: "#/components/schemas/UserBrief" }
+        receiverId: { type: string, description: Chỉ ở API cũ (1-1) }
+        type: { type: string, enum: [text, file, system, command, sticker, poll] }
+        text: { type: string }
+        image: { type: string, description: Ảnh đầu tiên (cho client cũ) }
+        attachments: { type: array, items: { $ref: "#/components/schemas/Attachment" } }
+        replyTo: { type: [string, "null"] }
+        replyPreview:
+          type: [object, "null"]
+          properties:
+            _id: { type: string }
+            senderId: { type: string }
+            senderName: { type: string }
+            type: { type: string }
+            text: { type: string }
+            hasAttachments: { type: boolean }
+            deleted: { type: boolean }
+        mentions: { type: array, items: { type: string } }
+        command: { type: object, properties: { name: { type: string }, args: { type: string } } }
+        reactions:
+          type: array
+          items: { type: object, properties: { emoji: { type: string }, userIds: { type: array, items: { type: string } }, count: { type: integer }, mine: { type: boolean } } }
+        sticker: { type: object, properties: { packId: { type: string }, stickerId: { type: string }, emoji: { type: string }, url: { type: string } } }
+        pollId: { type: string }
+        forwardedFrom: { type: object, properties: { messageId: { type: string }, conversationId: { type: string }, senderId: { type: string } } }
+        links: { type: array, items: { type: string } }
+        metadata: { type: object, description: "system: { kind, ... }" }
+        clientMsgId: { type: string }
+        editedAt: { type: [string, "null"], format: date-time }
+        deletedAt: { type: [string, "null"], format: date-time }
+        pinnedAt: { type: [string, "null"], format: date-time }
+        pinnedBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Conversation:
+      type: object
+      properties:
+        _id: { type: string }
+        kind: { type: string, enum: [direct, group, support] }
+        title: { type: string, description: "direct: tên người kia; support: Hỗ trợ: <tên khách>" }
+        avatarUrl: { type: string }
+        peer: { $ref: "#/components/schemas/UserBrief" }
+        historyVisibility: { type: string, enum: [all, since_join] }
+        members:
+          type: array
+          items: { type: object, properties: { user: { $ref: "#/components/schemas/UserBrief" }, role: { type: string }, joinedAt: { type: string }, lastReadSeq: { type: integer } } }
+        memberCount: { type: integer }
+        lastSeq: { type: integer }
+        lastMessage:
+          type: [object, "null"]
+          properties: { id: { type: string }, seq: { type: integer }, senderId: { type: string }, type: { type: string }, preview: { type: string }, deleted: { type: boolean }, at: { type: string } }
+        unreadCount: { type: integer }
+        myRole: { type: [string, "null"], enum: [owner, admin, member, agent, bot, null] }
+        historyFromSeq: { type: integer }
+        muted: { type: boolean }
+        mutedUntil: { type: [string, "null"] }
+        mutedForever: { type: boolean }
+        pinned: { type: boolean }
+        pinnedAt: { type: [string, "null"] }
+        archived: { type: boolean }
+        support:
+          type: object
+          properties:
+            status: { type: string, enum: [waiting_agent, agent, closed] }
+            assigneeId: { type: [string, "null"] }
+            assignee: { $ref: "#/components/schemas/UserBrief" }
+            customer: { $ref: "#/components/schemas/UserBrief" }
+            tags: { type: array, items: { type: string } }
+            meta: { type: object }
+            assignedAt: { type: [string, "null"] }
+            closedAt: { type: [string, "null"] }
+            rating: { type: [integer, "null"] }
+            ratingNote: { type: [string, "null"] }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Poll:
+      type: object
+      properties:
+        _id: { type: string }
+        conversationId: { type: string }
+        messageId: { type: string }
+        question: { type: string }
+        options:
+          type: array
+          items: { type: object, properties: { id: { type: string }, text: { type: string }, count: { type: integer }, voters: { type: array, items: { $ref: "#/components/schemas/UserBrief" } } } }
+        multiple: { type: boolean }
+        anonymous: { type: boolean }
+        status: { type: string, enum: [open, closed] }
+        closesAt: { type: [string, "null"] }
+        closedAt: { type: [string, "null"] }
+        votersCount: { type: integer }
+        myOptionIds: { type: array, items: { type: string } }
+        createdBy: { type: string }
+    Reminder:
+      type: object
+      properties:
+        _id: { type: string }
+        note: { type: string }
+        remindAt: { type: string, format: date-time }
+        remindAtLocal: { type: string, example: "2026-10-20T09:00:00+07:00" }
+        timezone: { type: string }
+        status: { type: string, enum: [scheduled, fired, cancelled] }
+        conversationId: { type: [string, "null"] }
+        messageId: { type: [string, "null"] }
+        firedAt: { type: [string, "null"] }
+    WebhookBody:
+      type: object
+      required: [name, url, events]
+      properties:
+        name: { type: string }
+        url: { type: string, format: uri }
+        events:
+          type: array
+          items:
+            type: string
+            enum: ["*", message.created, chat.command.detected, conversation.created, support.started, support.assigned, support.transferred, support.released, support.closed, support.reopened, support.rated, user.registered]
+        secret: { type: string, minLength: 16 }
+        enabled: { type: boolean }

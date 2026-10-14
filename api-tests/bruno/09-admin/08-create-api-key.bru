@@ -1,0 +1,40 @@
+meta {
+  name: Create API key
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/admin/api-keys
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {
+    "name": "Bruno partner",
+    "scopes": [
+      "conversations:read",
+      "messages:read"
+    ]
+  }
+}
+
+script:post-response {
+  bru.setVar("apiKey", res.body.key);
+  bru.setVar("apiKeyId", res.body.apiKey._id);
+}
+
+tests {
+  test("status 201", function () {
+    expect(res.status).to.equal(201);
+  });
+
+  test("raw key", function () {
+    expect(res.body.key).to.match(/^ck_[a-f0-9]{48}$/);
+  });
+}

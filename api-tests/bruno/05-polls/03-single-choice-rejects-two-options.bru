@@ -1,0 +1,31 @@
+meta {
+  name: Single choice rejects two options
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{baseUrl}}/api/polls/{{pollId}}/votes
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+body:json {
+  {
+    "optionIds": [
+      "o1",
+      "o2"
+    ]
+  }
+}
+
+tests {
+  test("400 CHAT-400-010", function () {
+    expect(res.status).to.equal(400);
+    expect(res.body.code).to.equal("CHAT-400-010");
+  });
+}

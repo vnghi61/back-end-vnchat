@@ -1,0 +1,36 @@
+meta {
+  name: Create direct
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/direct
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "userId": "{{bobId}}"
+  }
+}
+
+script:post-response {
+  bru.setVar("directId", res.body._id);
+}
+
+tests {
+  test("status 201", function () {
+    expect(res.status).to.equal(201);
+  });
+
+  test("direct titled with peer name", function () {
+    expect(res.body.kind).to.equal("direct");
+    expect(res.body.title).to.equal("Bob Bruno");
+  });
+}

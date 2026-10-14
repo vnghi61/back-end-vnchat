@@ -1,0 +1,21 @@
+meta {
+  name: Revoke API key
+  type: http
+  seq: 12
+}
+
+delete {
+  url: {{baseUrl}}/api/admin/api-keys/{{apiKeyId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+tests {
+  test("status 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}

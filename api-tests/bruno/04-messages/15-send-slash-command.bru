@@ -1,0 +1,35 @@
+meta {
+  name: Send slash command
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "text": "/task làm báo cáo",
+    "mentions": [
+      "{{bobId}}"
+    ]
+  }
+}
+
+tests {
+  test("status 201", function () {
+    expect(res.status).to.equal(201);
+  });
+
+  test("parsed as command", function () {
+    expect(res.body.type).to.equal("command");
+    expect(res.body.command.name).to.equal("task");
+  });
+}

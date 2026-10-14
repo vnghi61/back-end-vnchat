@@ -1,0 +1,21 @@
+meta {
+  name: Cancel reminder
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/api/reminders/{{reminderId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}

@@ -1,0 +1,31 @@
+meta {
+  name: Create direct again
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/direct
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "userId": "{{bobId}}"
+  }
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("same conversation", function () {
+    expect(res.body._id).to.equal(bru.getVar("directId"));
+  });
+}

@@ -1,0 +1,25 @@
+meta {
+  name: Mark read (Bob)
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{directId}}/read
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+body:json {
+  {}
+}
+
+tests {
+  test("status 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}

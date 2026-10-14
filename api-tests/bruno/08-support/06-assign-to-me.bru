@@ -1,0 +1,29 @@
+meta {
+  name: Assign to me
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/support/conversations/{{supportId}}/assign
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("handled by agent", function () {
+    expect(res.body.support.status).to.equal("agent");
+  });
+}

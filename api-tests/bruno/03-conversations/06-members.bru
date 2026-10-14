@@ -1,0 +1,25 @@
+meta {
+  name: Members
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/conversations/{{groupId}}/members
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("owner first", function () {
+    expect(res.body[0].role).to.equal("owner");
+  });
+}

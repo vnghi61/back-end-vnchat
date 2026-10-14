@@ -1,0 +1,35 @@
+meta {
+  name: Send sticker
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "type": "sticker",
+    "sticker": {
+      "packId": "basic",
+      "stickerId": "hi"
+    }
+  }
+}
+
+tests {
+  test("status 201", function () {
+    expect(res.status).to.equal(201);
+  });
+
+  test("sticker snapshot", function () {
+    expect(res.body.sticker.emoji).to.equal("👋");
+  });
+}

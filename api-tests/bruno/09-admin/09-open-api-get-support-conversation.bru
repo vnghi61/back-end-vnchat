@@ -1,0 +1,25 @@
+meta {
+  name: Open API: get support conversation
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/open/v1/conversations/{{supportId}}
+  body: none
+  auth: none
+}
+
+headers {
+  X-Api-Key: {{apiKey}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("support kind", function () {
+    expect(res.body.kind).to.equal("support");
+  });
+}

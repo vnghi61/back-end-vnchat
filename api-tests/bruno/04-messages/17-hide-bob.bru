@@ -1,0 +1,21 @@
+meta {
+  name: Hide (Bob)
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages/{{messageId}}/hide
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+tests {
+  test("status 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}

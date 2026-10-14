@@ -1,0 +1,31 @@
+meta {
+  name: Update me
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{baseUrl}}/api/me
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "name": "Alice Nguyễn"
+  }
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("renamed", function () {
+    expect(res.body.name).to.equal("Alice Nguyễn");
+  });
+}

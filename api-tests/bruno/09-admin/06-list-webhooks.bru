@@ -1,0 +1,21 @@
+meta {
+  name: List webhooks
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/admin/webhooks
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}

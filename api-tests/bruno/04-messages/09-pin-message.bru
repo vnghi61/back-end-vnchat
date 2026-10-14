@@ -1,0 +1,25 @@
+meta {
+  name: Pin message
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages/{{messageId}}/pin
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("pinned", function () {
+    expect(res.body.pinnedAt).to.be.a("string");
+  });
+}

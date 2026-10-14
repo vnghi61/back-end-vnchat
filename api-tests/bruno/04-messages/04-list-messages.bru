@@ -1,0 +1,26 @@
+meta {
+  name: List messages
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages?limit=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("ordered old to new", function () {
+    const seqs = res.body.items.map((m) => m.seq);
+    expect(seqs).to.deep.equal([...seqs].sort((a, b) => a - b));
+  });
+}

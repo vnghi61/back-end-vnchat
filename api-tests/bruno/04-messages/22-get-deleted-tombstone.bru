@@ -1,0 +1,26 @@
+meta {
+  name: Get deleted tombstone
+  type: http
+  seq: 22
+}
+
+get {
+  url: {{baseUrl}}/api/conversations/{{directId}}/messages/{{messageId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("tombstone", function () {
+    expect(res.body.deletedAt).to.be.a("string");
+    expect(res.body.text).to.equal("");
+  });
+}

@@ -1,0 +1,28 @@
+meta {
+  name: Open API: missing scope
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/open/v1/conversations/{{supportId}}/messages
+  body: json
+  auth: none
+}
+
+headers {
+  X-Api-Key: {{apiKey}}
+}
+
+body:json {
+  {
+    "text": "x"
+  }
+}
+
+tests {
+  test("403 CHAT-403-007", function () {
+    expect(res.status).to.equal(403);
+    expect(res.body.code).to.equal("CHAT-403-007");
+  });
+}

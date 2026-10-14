@@ -1,0 +1,27 @@
+meta {
+  name: Presence heartbeat
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/presence/heartbeat
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "deviceId": "bruno"
+  }
+}
+
+tests {
+  test("status 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}

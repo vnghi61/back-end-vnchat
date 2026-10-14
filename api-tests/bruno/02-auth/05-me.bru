@@ -1,0 +1,25 @@
+meta {
+  name: Me
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("is Alice", function () {
+    expect(res.body._id).to.equal(bru.getVar("aliceId"));
+  });
+}

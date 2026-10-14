@@ -1,0 +1,28 @@
+meta {
+  name: Rename as member is forbidden
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{baseUrl}}/api/conversations/{{groupId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+body:json {
+  {
+    "title": "Hack"
+  }
+}
+
+tests {
+  test("403 CHAT-403-004", function () {
+    expect(res.status).to.equal(403);
+    expect(res.body.code).to.equal("CHAT-403-004");
+  });
+}

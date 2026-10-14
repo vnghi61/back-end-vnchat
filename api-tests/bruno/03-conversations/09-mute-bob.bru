@@ -1,0 +1,31 @@
+meta {
+  name: Mute (Bob)
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/conversations/{{directId}}/mute
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+body:json {
+  {
+    "minutes": 60
+  }
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("muted", function () {
+    expect(res.body.muted).to.equal(true);
+  });
+}

@@ -1,0 +1,22 @@
+meta {
+  name: Members cannot use admin
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/admin/users
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bobToken}}
+}
+
+tests {
+  test("403 CHAT-403-000", function () {
+    expect(res.status).to.equal(403);
+    expect(res.body.code).to.equal("CHAT-403-000");
+  });
+}

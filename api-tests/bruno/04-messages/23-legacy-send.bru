@@ -1,0 +1,31 @@
+meta {
+  name: Legacy send
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{baseUrl}}/api/messages/send/{{bobId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{aliceToken}}
+}
+
+body:json {
+  {
+    "text": "API cũ vẫn chạy"
+  }
+}
+
+tests {
+  test("status 201", function () {
+    expect(res.status).to.equal(201);
+  });
+
+  test("has receiverId", function () {
+    expect(res.body.receiverId).to.equal(bru.getVar("bobId"));
+  });
+}

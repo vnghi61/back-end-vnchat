@@ -1,0 +1,29 @@
+meta {
+  name: Login Alice
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{aliceEmail}}",
+    "password": "secret123",
+    "device": "bruno"
+  }
+}
+
+script:post-response {
+  bru.setVar("aliceToken", res.body.token);
+}
+
+tests {
+  test("status 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}
