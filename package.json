@@ -1,10 +1,14 @@
 {
-  "name": "back-end",
+  "name": "back-end-vnchat",
   "version": "1.0.0",
   "description": "",
   "main": "src/index.js",
   "scripts": {
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "test": "node --test --test-concurrency=1 \"test/*.test.js\"",
+    "migrate": "node src/scripts/migrate.js",
+    "set-roles": "node src/scripts/set-roles.js"
   },
   "keywords": [],
   "author": "",
@@ -19,9 +23,15 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.13.2",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "socket.io-client": "^4.8.1",
+    "supertest": "^7.0.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

@@ -1,31 +1,27 @@
-import jwt from "jsonwebtoken";
-import User from "../models/user.model.js";
+import { Errors } from "../lib/errors.js";
+import { can } from "../lib/permissions.js";
+import { authenticateToken, extractToken } from "../services/session.service.js";
 
+// Cookie `jwt` (web) hoặc `Authorization: Bearer <jwt>` (mobile). Session phải còn hiệu lực
+// và tài khoản active.
 export const protectRoute = async (req, res, next) => {
-    try {
-    const token = req.cookies.jwt;
-    
-    if(!token){
-        return res.status(401).json({message: "Unauthorized"});
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    if(!decoded){
-        return res.status(401).json({message: "Unauthorized"});
-    }
-
-    const user = await User.findById(decoded.userId).select("-password");
-
-    if(!user){
-        return res.status(404).json({message: "User not found"});
-    }
-
+    const { user, session } = await authenticateToken(extractToken(req));
     req.user = user;
-
+    req.session = session;
     next();
-    } catch (error) {
-        console.log("Error in protectRoute", error.message);
-        return res.status(500).json({message: "Internal Server Error"});
+}
+
+// Chỉ tài khoản đăng ký (không phải khách widget / bot).
+export const requireUser = (req, res, next) => {
+    if (req.user?.kind !== "user") throw Errors.forbidden("registered users only");
+    next();
+}
+
+// Quyền hệ thống theo policy (vd. authorize("admin:webhooks", "write")).
+export const authorize = (obj, act) => async (req, res, next) => {
+    if (!(await can(req.user, obj, act))) {
+        if (obj === "support") throw Errors.agentOnly();
+        throw Errors.forbidden(`${obj}:${act}`);
     }
+    next();
 }
